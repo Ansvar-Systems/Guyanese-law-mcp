@@ -1,5 +1,5 @@
 /**
- * Response metadata utilities for Dominican Republic Law MCP.
+ * Response metadata utilities for Guyanese Law MCP.
  */
 
 import type Database from '@ansvar/mcp-sqlite';
@@ -32,12 +32,12 @@ export function generateResponseMetadata(
   }
 
   return {
-    data_source: 'Dominican Republic Law (consultoria.gov.do) — National Council for Law Reporting',
-    jurisdiction: 'KE',
+    data_source: 'Laws of Guyana (legalaffairs.gov.gy) — Attorney General\'s Chambers and Ministry of Legal Affairs',
+    jurisdiction: 'GY',
     disclaimer:
-      'This data is sourced from Dominican Republic Law under Government Open Data principles. ' +
-      'The authoritative versions are in English. Swahili translations may be available for some documents. ' +
-      'Always verify with the official Dominican Republic Law portal (consultoria.gov.do).',
+      'This data is sourced from the Laws of Guyana portal maintained by the Attorney General\'s Chambers. ' +
+      'Government legislation is public domain under Guyanese law. ' +
+      'Always verify with the official Laws of Guyana portal (legalaffairs.gov.gy).',
     freshness,
   };
 }
