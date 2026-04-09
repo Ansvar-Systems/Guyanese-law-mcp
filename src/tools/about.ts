@@ -5,6 +5,7 @@
 import type Database from '@ansvar/mcp-sqlite';
 import { detectCapabilities, readDbMetadata } from '../capabilities.js';
 import { SERVER_NAME, SERVER_VERSION, REPOSITORY_URL } from '../constants.js';
+import { generateResponseMetadata } from '../utils/metadata.js';
 
 export interface AboutContext {
   version: string;
@@ -40,16 +41,15 @@ export function getAbout(db: InstanceType<typeof Database>, context: AboutContex
       documents: safeCount(db, 'SELECT COUNT(*) as count FROM legal_documents'),
       provisions: safeCount(db, 'SELECT COUNT(*) as count FROM legal_provisions'),
       definitions: safeCount(db, 'SELECT COUNT(*) as count FROM definitions'),
-      eu_documents: safeCount(db, 'SELECT COUNT(*) as count FROM eu_documents'),
-      eu_references: safeCount(db, 'SELECT COUNT(*) as count FROM eu_references'),
     },
     data_source: {
-      name: 'Dominican Republic Law',
-      authority: 'National Council for Law Reporting',
-      url: 'http://consultoria.gov.do',
+      name: 'Laws of Guyana',
+      authority: 'Ministry of Legal Affairs, Government of Guyana',
+      url: 'https://legalaffairs.gov.gy',
       license: 'Government Open Data',
-      jurisdiction: 'KE',
-      languages: ['en', 'sw'],
+      jurisdiction: 'GY',
+      languages: ['en'],
     },
+    _meta: generateResponseMetadata(db),
   };
 }
