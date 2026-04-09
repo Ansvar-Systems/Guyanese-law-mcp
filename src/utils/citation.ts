@@ -78,26 +78,17 @@ export function buildProvisionCitation(
   sourceUrl?: string | null,
   shortName?: string | null,
 ): CitationMetadata {
-  // Build canonical_ref — detect common statute ID formats
-  let canonicalRef: string;
-  if (documentId.match(/^\d{4}:\d+$/)) {
-    // Swedish SFS format: "2018:218" → "SFS 2018:218"
-    canonicalRef = `SFS ${documentId}`;
-  } else if (documentId.match(/^LOV-\d{4}/)) {
-    // Norwegian Lovdata format
-    canonicalRef = documentId;
-  } else {
-    canonicalRef = documentTitle || documentId;
-  }
+  // For Guyana (English common law), canonical_ref is the Act title
+  const canonicalRef = documentTitle || documentId;
 
-  // Build display_text with provision reference
+  // Build display_text — English common law format: "Section N, Act Title"
   let displayText: string;
-  if (provisionRef && provisionRef.includes(':')) {
-    // Chapter:section format (e.g., "3:12" → "3 kap. 12 §")
-    const [ch, sec] = provisionRef.split(':');
-    displayText = `${ch} kap. ${sec} § ${canonicalRef}`;
-  } else if (provisionRef) {
-    displayText = `§ ${provisionRef} ${canonicalRef}`;
+  // Strip leading "s", "art" prefixes to get the bare number
+  const bareRef = provisionRef
+    ? provisionRef.replace(/^(?:s|art)(\d)/i, '$1')
+    : '';
+  if (bareRef) {
+    displayText = `Section ${bareRef}, ${canonicalRef}`;
   } else {
     displayText = canonicalRef;
   }
@@ -106,7 +97,6 @@ export function buildProvisionCitation(
   const aliases: string[] = [];
   if (shortName) aliases.push(shortName);
   if (documentId !== canonicalRef) aliases.push(documentId);
-  if (documentTitle && documentTitle !== canonicalRef) aliases.push(documentTitle);
 
   return {
     canonical_ref: canonicalRef,

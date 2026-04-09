@@ -1,5 +1,5 @@
 /**
- * format_citation — Format a Dominican legal citation per standard conventions.
+ * format_citation — Format a Guyanese legal citation per standard conventions.
  */
 
 import { generateResponseMetadata, type ToolResponse } from '../utils/metadata.js';
@@ -17,8 +17,9 @@ export interface FormatCitationResult {
 }
 
 export async function formatCitationTool(
+  db: InstanceType<typeof Database>,
   input: FormatCitationInput,
-): Promise<FormatCitationResult> {
+): Promise<ToolResponse<FormatCitationResult>> {
   const format = input.format ?? 'full';
   const trimmed = input.citation.trim();
 
@@ -50,5 +51,8 @@ export async function formatCitationTool(
       break;
   }
 
-  return { original: input.citation, formatted, format };
+  return {
+    results: { original: input.citation, formatted, format },
+    _meta: generateResponseMetadata(db),
+  };
 }

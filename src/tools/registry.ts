@@ -233,7 +233,7 @@ export function registerTools(
           result = await buildLegalStance(db, args as unknown as BuildLegalStanceInput);
           break;
         case 'format_citation':
-          result = await formatCitationTool(args as unknown as FormatCitationInput);
+          result = await formatCitationTool(db, args as unknown as FormatCitationInput);
           break;
         case 'check_currency':
           result = await checkCurrency(db, args as unknown as CheckCurrencyInput);

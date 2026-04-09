@@ -24,6 +24,11 @@ export interface SearchLegislationResult {
   title: string | null;
   snippet: string;
   relevance: number;
+  _citation: {
+    canonical_ref: string;
+    display_text: string;
+    lookup: { tool: string; args: Record<string, string> };
+  };
 }
 
 const DEFAULT_LIMIT = 10;
@@ -34,7 +39,7 @@ export async function searchLegislation(
   input: SearchLegislationInput,
 ): Promise<ToolResponse<SearchLegislationResult[]>> {
   if (!input.query || input.query.trim().length === 0) {
-    return { results: [], _metadata: generateResponseMetadata(db) };
+    return { results: [], _meta: generateResponseMetadata(db) };
   }
 
   const limit = Math.min(Math.max(input.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
@@ -50,10 +55,11 @@ export async function searchLegislation(
     if (!resolved) {
       return {
         results: [],
-        _metadata: {
+        _meta: {
           ...generateResponseMetadata(db),
           note: `No document found matching "${input.document_id}"`,
         },
+        _error_type: 'not_found',
       };
     }
   }
@@ -91,13 +97,13 @@ export async function searchLegislation(
     params.push(fetchLimit);
 
     try {
-      const rows = db.prepare(sql).all(...params) as SearchLegislationResult[];
+      const rows = db.prepare(sql).all(...params) as DbSearchRow[];
       if (rows.length > 0) {
         queryStrategy = ftsQuery === queryVariants[0] ? 'exact' : 'fallback';
         const deduped = deduplicateResults(rows, limit);
         return {
           results: deduped,
-          _metadata: {
+          _meta: {
             ...generateResponseMetadata(db),
             ...(queryStrategy === 'fallback' ? { query_strategy: 'broadened' } : {}),
           },
@@ -142,11 +148,11 @@ export async function searchLegislation(
     likeParams.push(fetchLimit);
 
     try {
-      const rows = db.prepare(likeSql).all(...likeParams) as SearchLegislationResult[];
+      const rows = db.prepare(likeSql).all(...likeParams) as DbSearchRow[];
       if (rows.length > 0) {
         return {
           results: deduplicateResults(rows, limit),
-          _metadata: {
+          _meta: {
             ...generateResponseMetadata(db),
             query_strategy: 'like_fallback',
           },
@@ -157,7 +163,21 @@ export async function searchLegislation(
     }
   }
 
-  return { results: [], _metadata: generateResponseMetadata(db) };
+  return { results: [], _meta: generateResponseMetadata(db) };
+}
+
+type DbSearchRow = Omit<SearchLegislationResult, '_citation'>;
+
+function buildItemCitation(row: DbSearchRow): SearchLegislationResult['_citation'] {
+  const displayText = `Section ${row.section}, ${row.document_title}`;
+  return {
+    canonical_ref: displayText,
+    display_text: displayText,
+    lookup: {
+      tool: 'get_provision',
+      args: { document_id: row.document_id, section: row.section },
+    },
+  };
 }
 
 /**
@@ -166,7 +186,7 @@ export async function searchLegislation(
  * Keeps the first (highest-ranked) occurrence.
  */
 function deduplicateResults(
-  rows: SearchLegislationResult[],
+  rows: DbSearchRow[],
   limit: number,
 ): SearchLegislationResult[] {
   const seen = new Set<string>();
@@ -175,7 +195,7 @@ function deduplicateResults(
     const key = `${row.document_title}::${row.provision_ref}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    deduped.push(row);
+    deduped.push({ ...row, _citation: buildItemCitation(row) });
     if (deduped.length >= limit) break;
   }
   return deduped;
