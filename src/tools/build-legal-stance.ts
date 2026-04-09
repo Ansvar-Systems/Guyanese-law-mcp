@@ -21,6 +21,11 @@ export interface LegalStanceResult {
   title: string | null;
   snippet: string;
   relevance: number;
+  _citation: {
+    canonical_ref: string;
+    display_text: string;
+    lookup: { tool: string; args: Record<string, string> };
+  };
 }
 
 export async function buildLegalStance(
@@ -28,7 +33,7 @@ export async function buildLegalStance(
   input: BuildLegalStanceInput,
 ): Promise<ToolResponse<LegalStanceResult[]>> {
   if (!input.query || input.query.trim().length === 0) {
-    return { results: [], _metadata: generateResponseMetadata(db) };
+    return { results: [], _meta: generateResponseMetadata(db) };
   }
 
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 20);
@@ -43,7 +48,7 @@ export async function buildLegalStance(
     if (!resolved) {
       return {
         results: [],
-        _metadata: {
+        _meta: {
           ...generateResponseMetadata(db),
           note: `No document found matching "${input.document_id}"`,
         },
@@ -78,13 +83,13 @@ export async function buildLegalStance(
     params.push(fetchLimit);
 
     try {
-      const rows = db.prepare(sql).all(...params) as LegalStanceResult[];
+      const rows = db.prepare(sql).all(...params) as DbStanceRow[];
       if (rows.length > 0) {
         queryStrategy = ftsQuery === queryVariants[0] ? 'exact' : 'fallback';
         const deduped = deduplicateResults(rows, limit);
         return {
           results: deduped,
-          _metadata: {
+          _meta: {
             ...generateResponseMetadata(db),
             ...(queryStrategy === 'fallback' ? { query_strategy: 'broadened' } : {}),
           },
@@ -122,11 +127,11 @@ export async function buildLegalStance(
     likeParams.push(fetchLimit);
 
     try {
-      const rows = db.prepare(likeSql).all(...likeParams) as LegalStanceResult[];
+      const rows = db.prepare(likeSql).all(...likeParams) as DbStanceRow[];
       if (rows.length > 0) {
         return {
           results: deduplicateResults(rows, limit),
-          _metadata: {
+          _meta: {
             ...generateResponseMetadata(db),
             query_strategy: 'like_fallback',
           },
@@ -137,7 +142,21 @@ export async function buildLegalStance(
     }
   }
 
-  return { results: [], _metadata: generateResponseMetadata(db) };
+  return { results: [], _meta: generateResponseMetadata(db) };
+}
+
+type DbStanceRow = Omit<LegalStanceResult, '_citation'>;
+
+function buildItemCitation(row: DbStanceRow): LegalStanceResult['_citation'] {
+  const displayText = `Section ${row.section}, ${row.document_title}`;
+  return {
+    canonical_ref: displayText,
+    display_text: displayText,
+    lookup: {
+      tool: 'get_provision',
+      args: { document_id: row.document_id, section: row.section },
+    },
+  };
 }
 
 /**
@@ -145,7 +164,7 @@ export async function buildLegalStance(
  * Duplicate document IDs (numeric vs slug) cause the same provision to appear twice.
  */
 function deduplicateResults(
-  rows: LegalStanceResult[],
+  rows: DbStanceRow[],
   limit: number,
 ): LegalStanceResult[] {
   const seen = new Set<string>();
@@ -154,7 +173,7 @@ function deduplicateResults(
     const key = `${row.document_title}::${row.provision_ref}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    deduped.push(row);
+    deduped.push({ ...row, _citation: buildItemCitation(row) });
     if (deduped.length >= limit) break;
   }
   return deduped;
